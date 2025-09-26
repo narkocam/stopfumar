@@ -48,6 +48,20 @@
         .auth-btn:hover {
             transform: scale(1.02);
         }
+
+        /* Small tweak for svg logo alignment */
+        .brand-row {
+            display:flex;
+            align-items:center;
+            gap:12px;
+            margin-bottom: 12px;
+        }
+
+        .stop-logo {
+            width:72px;
+            height:72px;
+            flex-shrink:0;
+        }
     </style>
 
     <script type="module">
@@ -547,10 +561,31 @@
 
             <!-- Contenido principal -->
             <main class="flex-1">
-                <!-- User Info and Logout -->
-                <div class="flex justify-between items-center mb-6">
-                    <p id="user-id-display" class="text-sm text-gray-500 truncate"></p>
-                    <button id="signout-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm">Cerrar Sesión</button>
+                <!-- Brand row: SVG logo + user info -->
+                <div class="brand-row">
+                    <!-- SVG logotipo: señal octogonal STOP con cigarrillo sobre la palabra STOP -->
+                    <svg class="stop-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="StopFumar logo">
+                        <!-- Octagon -->
+                        <polygon points="60,10 140,10 190,60 190,140 140,190 60,190 10,140 10,60"
+                                 fill="#e11d48" stroke="#b91c1c" stroke-width="6"/>
+                        <!-- Cigarrillo (encima de la palabra STOP) -->
+                        <!-- cuerpo -->
+                        <rect x="48" y="60" width="104" height="18" rx="3" ry="3" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+                        <!-- filtro -->
+                        <rect x="150" y="60" width="20" height="18" rx="2" ry="2" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
+                        <!-- humo -->
+                        <path d="M46 55 C40 48, 58 42, 58 36" fill="none" stroke="#f3f4f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+                        <path d="M64 54 C58 47, 76 41, 76 35" fill="none" stroke="#f3f4f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+                        <!-- word STOP (centrado) -->
+                        <text x="100" y="136" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="700" fill="#ffffff" text-anchor="middle">STOP</text>
+                    </svg>
+    <!-- Aquí el título de la app -->
+    <h1 class="text-2xl font-bold text-gray-800">STOP FUMAR</h1>
+                    <!-- Info / botones pequeños (usuario + logout) -->
+                    <div style="flex:1; display:flex; justify-content:space-between; align-items:center;">
+                        <p id="user-id-display" class="text-sm text-gray-500 truncate"></p>
+                        <button id="signout-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm">Cerrar Sesión</button>
+                    </div>
                 </div>
 
                 <!-- Dashboard Section -->
@@ -628,11 +663,11 @@
                     </form>
                 </div>
 
-                <!-- Resources Section -->
+                <!-- Resources Section (fusionada) -->
                 <div id="resources-section" class="app-section hidden">
                     <h2 class="text-2xl font-bold mb-6 text-gray-800">Recursos de Ayuda</h2>
                     <div class="space-y-4">
-                        <!-- Sustituye estas tarjetas por tus “puntos de Recursos” reales del primer HTML si los tienes -->
+                        <!-- Recursos originales de index.html (conservados) -->
                         <div class="card p-4 bg-gray-50">
                             <h3 class="font-semibold text-gray-800">Asociación Española Contra el Cáncer (AECC)</h3>
                             <p class="text-sm text-gray-600 mt-1">Ofrecen guías, apoyo psicológico y programas para dejar de fumar.</p>
@@ -648,6 +683,65 @@
                             <p class="text-sm text-gray-600 mt-1">Una app con un método científico para dejar de fumar.</p>
                             <a href="https://play.google.com/store/apps/details?id=com.plimmer.stoptabaco&hl=es&gl=US" target="_blank" class="text-blue-500 hover:underline text-sm mt-2 inline-block">Ver en Google Play</a>
                         </div>
+
+                        <!-- Recursos añadidos desde index2.html (mantenida la estructura de tarjetas) -->
+                        <div class="p-4 bg-gray-50 rounded-lg card">
+                            <a href="https://ejemplo.com/nutricion" target="_blank" class="flex items-center space-x-3 text-blue-600 hover:underline">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2A10 10 0 1012 22 10 10 0 0012 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
+                                <span class="font-medium">Consejos de Nutrición</span>
+                            </a>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 rounded-lg card">
+                            <a href="https://ejemplo.com/ejercicio" target="_blank" class="flex items-center space-x-3 text-blue-600 hover:underline">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2A10 10 0 1012 22 10 10 0 0012 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"></path></svg>
+                                <span class="font-medium">Rutinas de Ejercicio</span>
+                            </a>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 rounded-lg card">
+                            <a href="https://ejemplo.com/sueno" target="_blank" class="flex items-center space-x-3 text-blue-600 hover:underline">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2A10 10 0 1012 22 10 10 0 0012 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"></path></svg>
+                                <span class="font-medium">Consejos para el Sueño</span>
+                            </a>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 rounded-lg card">
+                            <a href="https://ejemplo.com/meditacion" target="_blank" class="flex items-center space-x-3 text-blue-600 hover:underline">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2A10 10 0 1012 22 10 10 0 0012 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"></path></svg>
+                                <span class="font-medium">Sesiones de Meditación</span>
+                            </a>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 rounded-lg card">
+                            <a href="https://ejemplo.com/metodo" target="_blank" class="flex items-center space-x-3 text-blue-600 hover:underline">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2A10 10 0 1012 22 10 10 0 0012 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"></path></svg>
+                                <span class="font-medium">Libro del Método</span>
+                            </a>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 rounded-lg card">
+                            <a href="https://ejemplo.com/diario" target="_blank" class="flex items-center space-x-3 text-blue-600 hover:underline">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2A10 10 0 1012 22 10 10 0 0012 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"></path></svg>
+                                <span class="font-medium">Diario de 21 Días</span>
+                            </a>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 rounded-lg card">
+                            <a href="https://ejemplo.com/audio-dormir" target="_blank" class="flex items-center space-x-3 text-blue-600 hover:underline">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2A10 10 0 1012 22 10 10 0 0012 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"></path></svg>
+                                <span class="font-medium">Audio para Dormir</span>
+                            </a>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 rounded-lg card">
+                            <a href="https://ejemplo.com/reprogramacion" target="_blank" class="flex items-center space-x-3 text-blue-600 hover:underline">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2A10 10 0 1012 22 10 10 0 0012 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"></path></svg>
+                                <span class="font-medium">Audio de Autoreprogramación</span>
+                            </a>
+                        </div>
+
+                        <!-- Si quieres que alguno de estos enlaces sea una tarjeta completa con descripción (como los originales), lo dejo preparado para duplicar el formato -->
                     </div>
                 </div>
                 
@@ -662,7 +756,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     </div>
 </body>
