@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>StopFumar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 600px;
+        }
+        .card {
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+        .nav-button {
+            transition: all 0.3s ease;
+        }
+        .nav-button:hover {
+            transform: translateY(-2px);
+        }
+        .nav-button.active {
+            border-bottom: 3px solid #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        .auth-card {
+            max-width: 400px;
+        }
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(to right, #6b46c1, #3b82f6);
+        }
+        .auth-btn {
+            transition: transform 0.2s ease-in-out;
+        }
+        .auth-btn:hover {
+            transform: scale(1.02);
+        }
+    </style>
+
+    <script type="module">
+    /************************************************************************
+     * Configuración de Firebase
+     ************************************************************************/
+    
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import {
+      getAuth,
+      signInAnonymously,
+      signInWithPopup,
+      GoogleAuthProvider,
+      signOut,
+      onAuthStateChanged,
+      signInWithCustomToken
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      onSnapshot,
+      setLogLevel
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    
+    // Set Firestore log level to debug
+    setLogLevel('debug');
+    
+    // Configuración de Firebase para Netlify. REEMPLAZA LOS VALORES CON LOS DE TU PROYECTO.
+    const firebaseConfigManual = {
+      apiKey: "AIzaSyBswT0G3qPVzSYOG0uLR2kdRqK8qN0RLVc",
+      authDomain: "stopfumar-771bb.firebaseapp.com",
+      projectId: "stopfumar-771bb",
+      storageBucket: "stopfumar-771bb.firebasestorage.app",
+      messagingSenderId: "346906480982",
+      appId: "1:346906480982:web:2072aca523376b698486f7"
+    };
+
+
+// Initialize Firebase
+//const app = initializeApp(firebaseConfig);
+//const analytics = getAnalytics(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    // Utiliza la configuración del entorno si está disponible, de lo contrario, usa la configuración manual
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfigManual;
+    
+    let db = null;
+    let auth = null;
+    let userId = null;
+    let app = null;
+    let unsubscribeProfile = null; // Variable para gestionar la suscripción a Firestore
+
+    // Initialize Firebase only if the configuration exists
+    if (firebaseConfig && firebaseConfig.projectId) {
+      app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      auth = getAuth(app);
+    } else {
+        console.error("Firebase configuration is missing. The app will not function correctly.");
+        // Fallback or display a message to the user
+        document.addEventListener('DOMContentLoaded', () => {
+            const authContainer = document.getElementById("auth-container");
+            if(authContainer) {
+                authContainer.innerHTML = '<div class="text-center p-8 text-red-600 font-bold">Error de configuración: La clave de la API de Firebase no es válida. Por favor, asegúrese de que el entorno esté configurado correctamente.</div>';
+                authContainer.classList.remove('hidden');
+            }
+        });
+    }
+    
+    const settingsForm = document.getElementById("settings-form");
+    const saveSettingsButton = document.getElementById("save-settings-btn");
+    const startBtn = document.getElementById("start-btn");
+    const authBtn = document.getElementById("auth-btn");
+    const signoutBtn = document.getElementById("signout-btn");
+    const anonSignInBtn = document.getElementById("anon-signin-btn");
+    const googleSignInBtn = document.getElementById("google-signin-btn");
+    const authContainer = document.getElementById("auth-container");
+    const appContainer = document.getElementById("app-container");
+    const userIdDisplay = document.getElementById("user-id-display");
+    const navButtons = document.querySelectorAll('.nav-button');
+    const sections = document.querySelectorAll('.app-section');
+    
+    let profileData = {};
+    let chartInstance = null;
+    let goalChartInstance = null;
+    
+    // Custom dialog
+    function showCustomDialog(title, message, isConfirm = false, onConfirm = () => {}, onCancel = () => {}) {
+        const dialog = document.getElementById('custom-dialog');
+        document.getElementById('dialog-title').innerText = title;
+        document.getElementById('dialog-message').innerText = message;
+        
+        const okBtn = document.getElementById('dialog-ok');
+        const cancelBtn = document.getElementById('dialog-cancel');
+    
+        okBtn.onclick = () => {
+            dialog.classList.add('hidden');
+            onConfirm();
+        };
+    
+        if (isConfirm) {
+            cancelBtn.classList.remove('hidden');
+            cancelBtn.onclick = () => {
+                dialog.classList.add('hidden');
+                onCancel();
+            };
+        } else {
+            cancelBtn.classList.add('hidden');
+        }
+        
+        dialog.classList.remove('hidden');
+    }
+    
+    // Auth state listener
+    if (auth) {
+        onAuthStateChanged(auth, async (user) => {
+            // Unsubscribe from previous listener if it exists
+            if (unsubscribeProfile) {
+                unsubscribeProfile();
+                unsubscribeProfile = null;
+            }
+    
+            if (user) {
+                userId = user.uid;
+                console.log("User logged in with ID:", userId);
+                userIdDisplay.innerText = `ID de Usuario: ${userId}`;
+                authContainer.classList.add("hidden");
+                appContainer.classList.remove("hidden");
+                
+                // Attach Firestore listener ONLY after successful authentication
+                if (db) {
+                    const userDocRef = doc(db, `artifacts/${appId}/users/${userId}/profile/data`);
+                    unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            profileData = docSnap.data();
+                            console.log("Profile data loaded:", profileData);
+                            updateUI();
+                        } else {
+                            console.log("No profile data found. Initializing with default values.");
+                            profileData = {
+                                cigarillosPorDia: 20,
+                                precioCajetilla: 5,
+                                cigarillosPorCajetilla: 20,
+                                fechaDeInicio: new Date().toISOString().split('T')[0],
+                                objetivoDescripcion: 'Un capricho',
+                                objetivoCosto: 100,
+                            };
+                            updateUI();
+                            // Save initial profile
+                            setDoc(userDocRef, profileData, { merge: true }).catch(console.error);
+                        }
+                    }, (error) => {
+                        console.error("Error getting profile data:", error);
+                        // Show a user-friendly error message
+                        showCustomDialog("Error de Permisos", "No se puede cargar tu perfil. Asegúrate de tener los permisos correctos en tu base de datos.");
+                    });
+                }
+            } else {
+                console.log("User logged out");
+                userId = null;
+                authContainer.classList.remove("hidden");
+                appContainer.classList.add("hidden");
+                // Clear data on logout
+                profileData = {};
+                if (chartInstance) {
+                    chartInstance.destroy();
+                    chartInstance = null;
+                }
+                if (goalChartInstance) {
+                    goalChartInstance.destroy();
+                    goalChartInstance = null;
+                }
+            }
+        });
+    }
+    
+    // Use the custom token for Netlify
+    if (auth) {
+        if (typeof __initial_auth_token !== 'undefined') {
+            signInWithCustomToken(auth, __initial_auth_token).catch((error) => {
+                console.error("Error signing in with custom token:", error);
+                // Fallback to anonymous sign-in if custom token fails
+                signInAnonymously(auth);
+            });
+        } else {
+            signInAnonymously(auth);
+        }
+    }
+    
+    // Update UI
+    function updateUI() {
+      // Update inputs
+      document.getElementById('cigarillos-dia').value = profileData.cigarillosPorDia;
+      document.getElementById('precio-cajetilla').value = profileData.precioCajetilla;
+      document.getElementById('cigarillos-cajetilla').value = profileData.cigarillosPorCajetilla;
+      document.getElementById('start-date').value = profileData.fechaDeInicio;
+      document.getElementById('objetivo-descripcion').value = profileData.objetivoDescripcion;
+      document.getElementById('objetivo-costo').value = profileData.objetivoCosto;
+    
+      // Calculate stats
+      const startDate = new Date(profileData.fechaDeInicio);
+      const now = new Date();
+      const diffTime = now - startDate;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+      const cigarsAvoided = diffDays * profileData.cigarillosPorDia;
+      const moneySaved = (cigarsAvoided / profileData.cigarillosPorCajetilla) * profileData.precioCajetilla;
+    
+      document.getElementById('days-stopped').textContent = diffDays < 0 ? 0 : diffDays;
+      document.getElementById('cigars-avoided').textContent = cigarsAvoided < 0 ? 0 : cigarsAvoided;
+      document.getElementById('money-saved').textContent = `€${moneySaved < 0 ? 0 : moneySaved.toFixed(2)}`;
+    
+      // Update chart
+      updateChart(diffDays);
+      updateGoalChart(moneySaved < 0 ? 0 : moneySaved);
+    }
+    
+    function updateChart(days) {
+      const ctx = document.getElementById('myChart').getContext('2d');
+      const healthData = {
+        '20 minutos': 'Presión arterial y pulso bajan a la normalidad.',
+        '12 horas': 'Nivel de monóxido de carbono en sangre regresa a la normalidad.',
+        '24 horas': 'El riesgo de ataque al corazón disminuye.',
+        '2-3 semanas': 'Mejora la circulación y la función pulmonar.',
+        '1-9 meses': 'Disminuyen la tos y la falta de aire.',
+        '1 año': 'El riesgo de enfermedad cardíaca se reduce a la mitad.',
+        '5 años': 'El riesgo de accidente cerebrovascular se reduce al de un no fumador.',
+        '10 años': 'El riesgo de cáncer de pulmón se reduce a la mitad.'
+      };
+    
+      const labels = Object.keys(healthData);
+      const data = [0.1, 0.5, 1, 3, 6, 12, 60, 120]; // Representing approximate weeks/months
+      const backgroundColor = data.map((d, i) => (days >= d * 7 || (i === 0 && days >= 0)) ? '#3b82f6' : '#d1d5db');
+      
+      if (chartInstance) {
+        chartInstance.data.datasets[0].data = data;
+        chartInstance.data.datasets[0].backgroundColor = backgroundColor;
+        chartInstance.update();
+      } else {
+        chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Progreso de la Salud',
+              data: data,
+              backgroundColor: backgroundColor,
+              borderWidth: 1,
+              barThickness: 30,
+              borderRadius: 5
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                display: false,
+                stacked: true,
+                grid: { display: false }
+              },
+              y: {
+                beginAtZero: true,
+                stacked: true,
+                grid: { display: false }
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const label = context.dataset.label || '';
+                    const value = context.parsed.x;
+                    const tooltipText = healthData[labels[context.dataIndex]];
+                    return `${labels[context.dataIndex]}: ${tooltipText}`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    function updateGoalChart(moneySaved) {
+        const goalCost = profileData.objetivoCosto || 0;
+        const goalDescription = profileData.objetivoDescripcion || 'Tu objetivo';
+
+        document.getElementById('goal-description').innerText = goalDescription;
+        document.getElementById('goal-progress-text').innerText = `Ahorrado: €${moneySaved.toFixed(2)} de €${goalCost.toFixed(2)}`;
+
+        const ctx = document.getElementById('goalChart').getContext('2d');
+        const progress = goalCost > 0 ? (moneySaved / goalCost) * 100 : 0;
+        const remaining = 100 - progress;
+        
+        const data = {
+            labels: ['Completado', 'Restante'],
+            datasets: [{
+                data: [progress > 100 ? 100 : progress, progress > 100 ? 0 : remaining],
+                backgroundColor: ['#3b82f6', '#d1d5db'],
+                borderWidth: 0,
+            }]
+        };
+
+        if (goalChartInstance) {
+            goalChartInstance.data.datasets[0].data = data.datasets[0].data;
+            goalChartInstance.update();
+        } else {
+            goalChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += `${context.parsed.toFixed(2)}%`;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    // Save settings handler
+    settingsForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!userId || !db) {
+        showCustomDialog("Error", "No se puede guardar, usuario no autenticado o base de datos no disponible.");
+        return;
+      }
+      
+      const updatedData = {
+        cigarillosPorDia: parseInt(document.getElementById('cigarillos-dia').value, 10),
+        precioCajetilla: parseFloat(document.getElementById('precio-cajetilla').value),
+        cigarillosPorCajetilla: parseInt(document.getElementById('cigarillos-cajetilla').value, 10),
+        fechaDeInicio: document.getElementById('start-date').value,
+        objetivoDescripcion: document.getElementById('objetivo-descripcion').value,
+        objetivoCosto: parseFloat(document.getElementById('objetivo-costo').value),
+      };
+    
+      const userDocRef = doc(db, `artifacts/${appId}/users/${userId}/profile/data`);
+      setDoc(userDocRef, updatedData, { merge: true })
+        .then(() => {
+          showCustomDialog("Éxito", "Ajustes guardados correctamente.");
+          // Update local state and UI
+          profileData = updatedData;
+          updateUI();
+        })
+        .catch((error) => {
+          console.error("Error al guardar ajustes: ", error);
+          showCustomDialog("Error", `Error al guardar: ${error.message}`);
+        });
+    });
+    
+    // Reset data handler
+    document.getElementById('reset-data-btn').addEventListener('click', () => {
+      showCustomDialog("Confirmar", "¿Estás seguro de que quieres resetear todos los datos? Esto no se puede deshacer.", true, () => {
+        if (!userId || !db) {
+          showCustomDialog("Error", "No se puede resetear, usuario no autenticado o base de datos no disponible.");
+          return;
+        }
+        
+        const userDocRef = doc(db, `artifacts/${appId}/users/${userId}/profile/data`);
+        setDoc(userDocRef, {
+          cigarillosPorDia: 20,
+          precioCajetilla: 5,
+          cigarillosPorCajetilla: 20,
+          fechaDeInicio: new Date().toISOString().split('T')[0],
+          objetivoDescripcion: 'Un capricho',
+          objetivoCosto: 100,
+        })
+        .then(() => {
+          showCustomDialog("Éxito", "Datos reseteados correctamente.");
+        })
+        .catch((error) => {
+          console.error("Error al resetear datos:", error);
+          showCustomDialog("Error", `Error al resetear: ${error.message}`);
+        });
+      });
+    });
+    
+    // Auth button handlers
+    if (auth) {
+        googleSignInBtn.addEventListener('click', () => {
+            const provider = new GoogleAuthProvider();
+            signInWithPopup(auth, provider)
+                .then((result) => {
+                    console.log("Signed in with Google:", result.user.uid);
+                }).catch((error) => {
+                    console.error("Google sign-in error:", error);
+                    const errorMessage = error.message;
+                    showCustomDialog("Error de Autenticación", `No se pudo iniciar sesión con Google. ${errorMessage}`);
+                });
+        });
+    
+        anonSignInBtn.addEventListener('click', () => {
+            signInAnonymously(auth)
+                .then(() => {
+                    console.log("Signed in anonymously");
+                })
+                .catch((error) => {
+                    console.error("Anonymous sign-in error:", error);
+                    showCustomDialog("Error de Autenticación", `No se pudo iniciar sesión anónimamente. ${error.message}`);
+                });
+        });
+    
+        signoutBtn.addEventListener('click', () => {
+            signOut(auth).then(() => {
+                console.log("User signed out");
+                showCustomDialog("Sesión Cerrada", "Has cerrado sesión correctamente.");
+            }).catch((error) => {
+                console.error("Sign out error:", error);
+                showCustomDialog("Error", `Error al cerrar sesión: ${error.message}`);
+            });
+        });
+    }
+    
+    // Navigation
+    navButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const target = button.getAttribute('data-target');
+            
+            navButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            sections.forEach(section => section.classList.add('hidden'));
+            document.getElementById(target).classList.remove('hidden');
+        });
+    });
+    
+    // Set initial view to dashboard
+    document.addEventListener('DOMContentLoaded', () => {
+        const dashboardBtn = document.getElementById('dashboard-btn');
+        if (dashboardBtn) {
+          dashboardBtn.click();
+        }
+    });
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <!-- Auth Container -->
+    <div id="auth-container" class="auth-card p-8 bg-white rounded-xl shadow-2xl text-center transition-all duration-500 hidden">
+        <h1 class="text-3xl font-bold mb-2 text-gradient">StopFumar</h1>
+        <p class="text-gray-600 mb-8">La aplicación para dejar de fumar</p>
+        <div class="flex flex-col space-y-4">
+            <button id="anon-signin-btn" class="auth-btn flex items-center justify-center space-x-2 px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <i class="fas fa-user-circle"></i>
+                <span>Continuar de forma anónima</span>
+            </button>
+            <button id="google-signin-btn" class="auth-btn flex items-center justify-center space-x-2 px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <i class="fab fa-google text-red-500"></i>
+                <span>Continuar con Google</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app-container" class="container bg-white p-6 md:p-8 rounded-2xl shadow-2xl transition-all duration-500 hidden">
+        <div class="md:flex gap-6">
+            <!-- Sidebar (Menú Lateral) -->
+            <aside class="md:w-56 w-full">
+                <div class="card p-2 md:p-4">
+                    <button id="dashboard-btn" data-target="dashboard-section" class="nav-button w-full text-left flex items-center space-x-2 py-3 px-3 text-gray-600 hover:bg-gray-100 rounded-lg">
+                        <i class="fas fa-chart-line text-lg"></i>
+                        <span class="text-sm">Panel</span>
+                    </button>
+                    <button id="settings-btn" data-target="settings-section" class="nav-button w-full text-left flex items-center space-x-2 py-3 px-3 text-gray-600 hover:bg-gray-100 rounded-lg">
+                        <i class="fas fa-cog text-lg"></i>
+                        <span class="text-sm">Ajustes</span>
+                    </button>
+                    <button id="resources-btn" data-target="resources-section" class="nav-button w-full text-left flex items-center space-x-2 py-3 px-3 text-gray-600 hover:bg-gray-100 rounded-lg">
+                        <i class="fas fa-book text-lg"></i>
+                        <span class="text-sm">Recursos</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Contenido principal -->
+            <main class="flex-1">
+                <!-- User Info and Logout -->
+                <div class="flex justify-between items-center mb-6">
+                    <p id="user-id-display" class="text-sm text-gray-500 truncate"></p>
+                    <button id="signout-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm">Cerrar Sesión</button>
+                </div>
+
+                <!-- Dashboard Section -->
+                <div id="dashboard-section" class="app-section">
+                    <h2 class="text-2xl font-bold mb-6 text-gray-800">Tu Progreso</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="card bg-blue-100 p-4 text-center">
+                            <p class="text-xs font-semibold text-blue-600 uppercase">Días sin fumar</p>
+                            <p id="days-stopped" class="text-3xl font-bold text-blue-800 mt-2">0</p>
+                        </div>
+                        <div class="card bg-green-100 p-4 text-center">
+                            <p class="text-xs font-semibold text-green-600 uppercase">Cigarrillos evitados</p>
+                            <p id="cigars-avoided" class="text-3xl font-bold text-green-800 mt-2">0</p>
+                        </div>
+                        <div class="card bg-yellow-100 p-4 text-center">
+                            <p class="text-xs font-semibold text-yellow-600 uppercase">Dinero ahorrado</p>
+                            <p id="money-saved" class="text-3xl font-bold text-yellow-800 mt-2">€0.00</p>
+                        </div>
+                    </div>
+
+                    <!-- Goal Progress Section -->
+                    <div class="mb-8">
+                        <h3 class="text-xl font-bold mb-4 text-gray-800">Progreso Hacia tu Objetivo</h3>
+                        <div class="card bg-gray-50 p-6 flex items-center space-x-6">
+                            <div class="relative w-24 h-24">
+                                <canvas id="goalChart"></canvas>
+                            </div>
+                            <div>
+                                <p id="goal-description" class="text-lg font-semibold text-gray-700">Un capricho</p>
+                                <p id="goal-progress-text" class="text-sm text-gray-500">Ahorrado: €0.00 de €100.00</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="text-xl font-bold mb-4 text-gray-800">Beneficios para la Salud</h3>
+                    <div class="h-64">
+                        <canvas id="myChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Settings Section existente -->
+                <div id="settings-section" class="app-section hidden">
+                    <h2 class="text-2xl font-bold mb-6 text-gray-800">Ajustes</h2>
+                    <form id="settings-form" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="cigarillos-dia" class="block text-sm font-medium text-gray-700">Cigarrillos por día</label>
+                                <input type="number" id="cigarillos-dia" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="precio-cajetilla" class="block text-sm font-medium text-gray-700">Precio de la cajetilla (€)</label>
+                                <input type="number" step="0.01" id="precio-cajetilla" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="cigarillos-cajetilla" class="block text-sm font-medium text-gray-700">Cigarrillos por cajetilla</label>
+                                <input type="number" id="cigarillos-cajetilla" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="start-date" class="block text-sm font-medium text-gray-700">Fecha en que dejaste de fumar</label>
+                                <input type="date" id="start-date" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="objetivo-descripcion" class="block text-sm font-medium text-gray-700">Descripción del objetivo</label>
+                                <input type="text" id="objetivo-descripcion" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="objetivo-costo" class="block text-sm font-medium text-gray-700">Coste del objetivo (€)</label>
+                                <input type="number" step="0.01" id="objetivo-costo" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-lg hover:bg-blue-700 transition-colors">Guardar Ajustes</button>
+                        <button type="button" id="reset-data-btn" class="w-full px-4 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition-colors">Resetear Todos los Datos</button>
+                    </form>
+                </div>
+
+                <!-- Resources Section -->
+                <div id="resources-section" class="app-section hidden">
+                    <h2 class="text-2xl font-bold mb-6 text-gray-800">Recursos de Ayuda</h2>
+                    <div class="space-y-4">
+                        <!-- Sustituye estas tarjetas por tus “puntos de Recursos” reales del primer HTML si los tienes -->
+                        <div class="card p-4 bg-gray-50">
+                            <h3 class="font-semibold text-gray-800">Asociación Española Contra el Cáncer (AECC)</h3>
+                            <p class="text-sm text-gray-600 mt-1">Ofrecen guías, apoyo psicológico y programas para dejar de fumar.</p>
+                            <a href="https://www.contraelcancer.es/es/todo-sobre-cancer/prevencion/no-fumes/quieres-dejar-fumar" target="_blank" class="text-blue-500 hover:underline text-sm mt-2 inline-block">Visitar web</a>
+                        </div>
+                        <div class="card p-4 bg-gray-50">
+                            <h3 class="font-semibold text-gray-800">Ministerio de Sanidad</h3>
+                            <p class="text-sm text-gray-600 mt-1">Información y recursos del gobierno para dejar el tabaco.</p>
+                            <a href="https://www.sanidad.gob.es/ciudadanos/proteccionSalud/tabaco/home.htm" target="_blank" class="text-blue-500 hover:underline text-sm mt-2 inline-block">Visitar web</a>
+                        </div>
+                        <div class="card p-4 bg-gray-50">
+                            <h3 class="font-semibold text-gray-800">Stop Tabaco App</h3>
+                            <p class="text-sm text-gray-600 mt-1">Una app con un método científico para dejar de fumar.</p>
+                            <a href="https://play.google.com/store/apps/details?id=com.plimmer.stoptabaco&hl=es&gl=US" target="_blank" class="text-blue-500 hover:underline text-sm mt-2 inline-block">Ver en Google Play</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Custom Dialog for Alerts -->
+                <div id="custom-dialog" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+                    <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+                        <h3 id="dialog-title" class="text-xl font-bold mb-4"></h3>
+                        <p id="dialog-message" class="text-gray-700 mb-4"></p>
+                        <div class="flex justify-end space-x-2">
+                            <button id="dialog-ok" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">OK</button>
+                            <button id="dialog-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors hidden">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
